@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.room.Delete
 import com.example.notesapp.ui.theme.NotesAppTheme
 
 @Composable
@@ -27,7 +28,10 @@ fun NotesScreen(
     vm: NotesViewModel = viewModel ()
 ) {
     val notes by vm.notes.collectAsState()
-    var input by rememberSaveable() { mutableStateOf("") }
+    var input by rememberSaveable{ mutableStateOf("") }
+    var editingId by rememberSaveable { mutableStateOf<Long?>(null)}
+    var editingText by rememberSaveable { mutableStateOf("") }
+
     Column (
         modifier = modifier
             .fillMaxSize()
@@ -79,9 +83,27 @@ fun NotesScreen(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(notes, key = { it.id }) { note ->
-                    NoteItem(note = note)
+                    if (editingId == note.id) {
+                        NoteItemEditing(
+                            text = editingText,
+                            onTextChange = { editingText = it },
+                            onSave = {
+                                vm.updateNote(note, editingText)
+                                editingId = null
+                            },
+                            onCancel = { editingId = null }
+                        )
+                    } else {
+                        NoteItem(
+                            note = note,
+                            onEdit = {
+                                editingId = note.id
+                                editingText = note.title
+                            },
+                            onDelete = { vm.deleteNote(note) }
+                        )
+                    }
                     HorizontalDivider()
-
                 }
             }
         }
@@ -89,11 +111,57 @@ fun NotesScreen(
 }
 
 @Composable
-fun NoteItem(note: Note) {
+fun NoteItem(
+    note: Note,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
+) {
     ListItem(
         headlineContent = { Text(note.title) },
-        supportingContent = { Text("ID: ${note.id}") }
+        supportingContent = { Text("ID: ${note.id}") },
+        trailingContent = {
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(painterResource(R.drawable.ic_edit), "Edit",
+                        tint = Color(0xFF2196F3))
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(painterResource(R.drawable.ic_delete), "Hapus",
+                        tint = Color(0xFFF44336))
+                }
+            }
+        }
     )
+}
+
+@Composable
+fun NoteItemEditing(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = onTextChange,
+            label = { Text("Ubah catatan") },
+            singleLine = true,
+            modifier = Modifier.weight(1f)
+        )
+        IconButton(onClick = onSave) {
+            Icon(painterResource(R.drawable.ic_check), "Simpan",
+                tint = Color(0xFF4CAF50))
+        }
+        IconButton(onClick = onCancel) {
+            Icon(painterResource(R.drawable.ic_close), "Batal")
+        }
+    }
 }
 
 @Preview(showBackground = true)
